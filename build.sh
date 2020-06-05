@@ -1,0 +1,1 @@
+gcc -O3 -Wall -Werror -Wextra -Wpedantic -o torres evaluate.c minimax.c move.c position.c torres.c
