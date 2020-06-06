@@ -45,16 +45,16 @@ void xboard_usermove(Position* position, char* usermove)
     switch (usermove[4])
     {
     case 'q':
-        promotion = WHITE_QUEEN;
+        promotion = position->player * WHITE_QUEEN;
         break;
     case 'b':
-        promotion = WHITE_BISHOP;
+        promotion = position->player * WHITE_BISHOP;
         break;
     case 'n':
-        promotion = WHITE_KNIGHT;
+        promotion = position->player * WHITE_KNIGHT;
         break;
     case 'r':
-        promotion = WHITE_ROOK;
+        promotion = position->player * WHITE_ROOK;
     }
     MoveList move_list;
     generate_moves(position, &move_list);
@@ -123,6 +123,7 @@ int main(void)
         else if (strncmp(command, "setboard", 8) == 0)
         {
             initialize_position(&position, command + 9);
+            side = NONE;
         }
         else if (strncmp(command, "post", 4) == 0)
         {
