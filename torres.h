@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #define WHITE 1
 #define BLACK -1
 #define WHITE_KING 6
@@ -23,115 +25,115 @@
 #define WHITE_QUEENSIDE_CASTLING 4
 #define BLACK_KINGSIDE_CASTLING 5
 #define BLACK_QUEENSIDE_CASTLING 6
+#define TRANSPOSITION_TABLE_SIZE 65536
 
 typedef struct Move Move;
 typedef struct MoveList MoveList;
 typedef struct Position Position;
+typedef struct Transposition Transposition;
 
 /*
-Displacements for bishop moves.
+Contains information for making and retracting moves.
+
+Fields:
+- int capture: The piece captured by the move. May be EMPTY.
+- int castling[4]: The castling rights before the move.
+- int en_passant: The en passant target before the move.
+- int origin: The origin square.
+- int promotion: The promotion piece type or NONE.
+- int special: Special rules to be applied. Possible values:
+  - NONE
+  - DOUBLE_STEP
+  - EN_PASSANT
+  - WHITE_KINGSIDE_CASTLING
+  - WHITE_QUEENSIDE_CASTLING
+  - BLACK_KINGSIDE_CASTLING
+  - BLACK_QUEENSIDE_CASTLING
+- int target: The target square.
 */
-extern int bishop_displacements[];
+struct Move
+{
+    int capture;
+    int castling[4];
+    int en_passant;
+    int origin;
+    int promotion;
+    int special;
+    int target;
+};
 
 /*
-Piece-square table for the black bishop.
+A list of a variable number of moves.
+
+Fields:
+- int count: The number of moves currently in the list.
+- Move moves[256]: The moves in the list.
 */
-extern int black_bishop_table[];
+struct MoveList
+{
+    int count;
+    Move moves[256];
+};
 
 /*
-Endgame piece-square table for the black king.
+Contains the game state. Only one position should exist at runtime. During tree
+search moves are made and retracted in it.
+
+Fields:
+- int black_king: The black king's position.
+- int board[120]: Internally, the board has 120 squares with a margin of "lava"
+  squares like this:
+  # # # # # # # # # #
+  # # # # # # # # # #
+  # r n b q k b n r #
+  # p p p p p p p p #
+  # . . . . . . . . #
+  # . . . . . . . . #
+  # . . . . . . . . #
+  # . . . . . . . . #
+  # P P P P P P P P #
+  # R N B Q K B N R #
+  # # # # # # # # # #
+  # # # # # # # # # #
+  This makes it easy to avoid moves over the edge of the board. There are two
+  ways of numbering the squares: The "long" index numbers all squares from 0 to
+  119, the "short" index numbers only the real squares from 0 to 63. Almost
+  always, the long index is used. The array long_index maps short indices to
+  long indices.
+- int castling[4]: The castling rights, white kingside, white queenside, black
+  kingside and black queenside.
+- int en_passant: The target square of an en passant move or -1 if the preceding
+  move was not a double step.
+- int player: The current player, WHITE or BLACK.
+- int white_king: The white king's position.
 */
-extern int black_king_endgame_table[];
+struct Position
+{
+    int black_king;
+    int board[120];
+    int castling[4];
+    int en_passant;
+    int player;
+    int white_king;
+};
 
 /*
-Piece-square table for the black king.
-*/
-extern int black_king_table[];
+Contains previously calculated information about a position;
 
-/*
-Piece-square table for the black knight.
+Fields:
+- Move best_move: The best move in this position.
+- int depth: The search depth.
+- uint64_t hash: The position's hash.
+- int score: The position's score in centipawns. Positive if the current player
+  has an advantage, negative if the current player has a disadvantage.
 */
-extern int black_knight_table[];
-
-/*
-Piece-square table for the black pawn.
-*/
-extern int black_pawn_table[];
-
-/*
-Piece-square table for the black queen.
-*/
-extern int black_queen_table[];
-
-/*
-Piece-square table for the black rook.
-*/
-extern int black_rook_table[];
-
-/*
-Displacements for king moves.
-*/
-extern int king_displacements[];
-
-/*
-Displacements for knight moves.
-*/
-extern int knight_displacements[];
-
-/*
-A mapping between short and long indices, see struct Position.
-*/
-extern int long_index[];
-
-/*
-Displacements for pawn moves.
-*/
-extern int pawn_displacements[];
-
-/*
-Displacements for queen moves.
-*/
-extern int queen_displacements[];
-
-/*
-Displacements for rook moves.
-*/
-extern int rook_displacements[];
-
-/*
-Piece-square table for the white bishop.
-*/
-extern int white_bishop_table[];
-
-/*
-Piece-square table for the white king.
-*/
-extern int white_king_table[];
-
-/*
-Endgame piece-square table for the white king.
-*/
-extern int white_king_endgame_table[];
-
-/*
-Piece-square table for the white knight.
-*/
-extern int white_knight_table[];
-
-/*
-Piece-square table for the white pawn.
-*/
-extern int white_pawn_table[];
-
-/*
-Piece-square table for the white queen.
-*/
-extern int white_queen_table[];
-
-/*
-Piece-square table for the white rook.
-*/
-extern int white_rook_table[];
+struct Transposition
+{
+    Move best_move;
+    int depth;
+    uint64_t hash;
+    int score;
+};
 
 /*
 Adds a move to a move list.
@@ -147,6 +149,20 @@ Parameters:
 */
 void add_move(MoveList* move_list, int origin, int target, int promotion,
     int special, Position* position);
+
+/*
+Adds a transposition to the transposition table. May overwrite an existing
+transposition.
+
+Parameters:
+- Position* position: A position.
+- int depth: The search depth.
+- int score: The position's score in centipawns. Positive if the current player
+  has an advantage, negative if the current player has a disadvantage.
+- Move* best_move: The presumed best move in this position.
+*/
+void add_transposition(Position* position, int depth, int score,
+    Move* best_move);
 
 /*
 Checks if a square is attacked.
@@ -233,6 +249,36 @@ Returns: 1 if the square is attacked, 0 otherwise.
 int attacked_by_rook(Position* position, int square, int attacker);
 
 /*
+Displacements for bishop moves.
+*/
+extern int bishop_displacements[];
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t black_bishop_keys[];
+
+/*
+Piece-square table for the black bishop.
+*/
+extern int black_bishop_table[];
+
+/*
+Endgame piece-square table for the black king.
+*/
+extern int black_king_endgame_table[];
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t black_king_keys[];
+
+/*
+Piece-square table for the black king.
+*/
+extern int black_king_table[];
+
+/*
 Checks if black kingside castling is possible.
 
 Parameters:
@@ -243,6 +289,36 @@ Returns: 1 if castling is possible, 0 otherwise.
 int black_kingside_castling(Position* position);
 
 /*
+Random keys for the hash function.
+*/
+extern uint64_t black_knight_keys[];
+
+/*
+Piece-square table for the black knight.
+*/
+extern int black_knight_table[];
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t black_pawn_keys[];
+
+/*
+Piece-square table for the black pawn.
+*/
+extern int black_pawn_table[];
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t black_queen_keys[];
+
+/*
+Piece-square table for the black queen.
+*/
+extern int black_queen_table[];
+
+/*
 Checks if black queenside castling is possible.
 
 Parameters:
@@ -251,6 +327,26 @@ Parameters:
 Returns: 1 if castling is possible, 0 otherwise.
 */
 int black_queenside_castling(Position* position);
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t black_rook_keys[];
+
+/*
+Piece-square table for the black rook.
+*/
+extern int black_rook_table[];
+
+/*
+Calculates a position's hash.
+
+Parameters:
+- Position* position: A position.
+
+Returns: The position's hash.
+*/
+uint64_t calculate_hash(Position* position);
 
 /*
 Checks if a square is occupied by the current player's opponent.
@@ -275,6 +371,11 @@ Returns: 1 if the square is occupied by the current player's opponent or empty,
 0 otherwise.
 */
 int capturable_or_empty(Position* position, int square);
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t castling_keys[];
 
 /*
 Checks if a player is in check.
@@ -321,6 +422,11 @@ Parameters:
 Returns: 1 if the square is empty, 0 otherwise.
 */
 int empty(Position* position, int square);
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t en_passant_keys[];
 
 /*
 Checks if a position is an endgame.
@@ -426,12 +532,23 @@ Parameters:
 void generate_rook_moves(Position* position, int origin, MoveList* move_list);
 
 /*
+Retrieves a transposition for a position.
+
+Parameters:
+- Position* position: A position.
+- int min_depth: The required minimum depth.
+
+Returns: The transposition or NULL if there is none.
+*/
+Transposition* get_transposition(Position* position, int min_depth);
+
+/*
 Initializes a position with a FEN string.
 
 Parameters:
 - Position* position: The position to be initialized.
-- char fen[]: The FEN string. There is no validity check, so make sure the
-  string is valid before calling the function.
+- char* fen: The FEN string. There is no validity check, so make sure the string
+  is valid before calling the function.
 */
 void initialize_position(Position* position, char* fen);
 
@@ -448,6 +565,16 @@ Returns: The best move found.
 Move iterative_deepening(Position* position, int min_time, int verbose);
 
 /*
+Displacements for king moves.
+*/
+extern int king_displacements[];
+
+/*
+Displacements for knight moves.
+*/
+extern int knight_displacements[];
+
+/*
 Checks if a position is legal, i.e. if the preceding move did not leave the king
 in check.
 
@@ -457,6 +584,11 @@ Parameters:
 Returns: 1 if the position is legal, 0 otherwise.
 */
 int legal(Position* position);
+
+/*
+A mapping between short and long indices, see struct Position.
+*/
+extern int long_index[];
 
 /*
 Makes a move in a position.
@@ -477,14 +609,14 @@ Parameters:
   initial call.
 - int beta: See above. Should be 200000 in the initial call.
 - int* nodes: A counter that gets incremented by 1 for every node visited.
-- Move* principal_variation: An array of Moves for the principal variation (i.e.
-  the sequence of best moves) to be written to.
+- Move* best_move: A pointer to a move that gets overwritten with the presumed
+  best move.
 
 Returns: The positions score in centipawns. Positive if the current player has
 an advantage, negative if they have a disadvantage.
 */
 int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
-  Move* principal_variation);
+  Move* best_move);
 
 /*
 Checks if a square is occupied by the current player.
@@ -496,6 +628,16 @@ Parameters:
 Returns: 1 if the square is occupied by the current player, 0 otherwise.
 */
 int movable(Position* position, int square);
+
+/*
+Displacements for pawn moves.
+*/
+extern int pawn_displacements[];
+
+/*
+Random key for the hash function.
+*/
+extern uint64_t player_key;
 
 /*
 Presorts a move list so that the presumed best moves can be searched first.
@@ -540,6 +682,22 @@ otherwise.
 int promotion(Position* position, int square);
 
 /*
+Displacements for queen moves.
+*/
+extern int queen_displacements[];
+
+/*
+Displacements for rook moves.
+*/
+extern int rook_displacements[];
+
+/*
+The engine's transposition table holding information about previously examined
+positions, thus avoiding some duplicate calculations.
+*/
+extern Transposition transposition_table[];
+
+/*
 Retracts a move in a position.
 
 Parameters:
@@ -547,6 +705,31 @@ Parameters:
 - Move* move: The move.
 */
 void unmake_move(Position* position, Move* move);
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t white_bishop_keys[];
+
+/*
+Piece-square table for the white bishop.
+*/
+extern int white_bishop_table[];
+
+/*
+Endgame piece-square table for the white king.
+*/
+extern int white_king_endgame_table[];
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t white_king_keys[];
+
+/*
+Piece-square table for the white king.
+*/
+extern int white_king_table[];
 
 /*
 Checks if white kingside castling is possible.
@@ -559,6 +742,36 @@ Returns: 1 if castling is possible, 0 otherwise.
 int white_kingside_castling(Position* position);
 
 /*
+Random keys for the hash function.
+*/
+extern uint64_t white_knight_keys[];
+
+/*
+Piece-square table for the white knight.
+*/
+extern int white_knight_table[];
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t white_pawn_keys[];
+
+/*
+Piece-square table for the white pawn.
+*/
+extern int white_pawn_table[];
+
+/*
+Random keys for the hash function.
+*/
+extern uint64_t white_queen_keys[];
+
+/*
+Piece-square table for the white queen.
+*/
+extern int white_queen_table[];
+
+/*
 Checks if white queenside castling is possible.
 
 Parameters:
@@ -569,7 +782,17 @@ Returns: 1 if castling is possible, 0 otherwise.
 int white_queenside_castling(Position* position);
 
 /*
-Handles the "go" command of the xboard protocol.
+Random keys for the hash function.
+*/
+extern uint64_t white_rook_keys[];
+
+/*
+Piece-square table for the white rook.
+*/
+extern int white_rook_table[];
+
+/*
+Handles the xboard protocol's "go" command.
 
 Parameters:
 - Position* position: A position.
@@ -578,95 +801,10 @@ Parameters:
 void xboard_go(Position* position, int verbose);
 
 /*
-Handles the "usermove" command of the xboard protocol.
+Handles the xboard protocol's "usermove" command.
 
 Parameters:
 - Position* position: A position.
 - char* usermove: The usermove in "pure" algebraic notation.
 */
 void xboard_usermove(Position* position, char* usermove);
-
-/*
-Contains information for making and retracting moves.
-
-Fields:
-- int capture: The piece captured by the move. May be EMPTY.
-- int castling[4]: The castling rights before the move.
-- int en_passant: The en passant target before the move.
-- int origin: The origin square.
-- int promotion: The promotion piece type or NONE.
-- int special: Special rules to be applied. Possible values:
-  - NONE
-  - DOUBLE_STEP
-  - EN_PASSANT
-  - WHITE_KINGSIDE_CASTLING
-  - WHITE_QUEENSIDE_CASTLING
-  - BLACK_KINGSIDE_CASTLING
-  - BLACK_QUEENSIDE_CASTLING
-- int target: The target square.
-*/
-struct Move
-{
-    int capture;
-    int castling[4];
-    int en_passant;
-    int origin;
-    int promotion;
-    int special;
-    int target;
-};
-
-/*
-A list of a variable number of moves.
-
-Fields:
-- int count: The number of moves currently in the list.
-- Move moves[256]: The moves in the list.
-*/
-struct MoveList
-{
-    int count;
-    Move moves[256];
-};
-
-/*
-Contains the game state. Only one position should exist at runtime. During tree
-search moves are made and retracted in it.
-
-Fields:
-- int black_king: The black king's position.
-- int board[120]: Internally, the board has 120 squares with a margin of "lava"
-  squares like this:
-  # # # # # # # # # #
-  # # # # # # # # # #
-  # r n b q k b n r #
-  # p p p p p p p p #
-  # . . . . . . . . #
-  # . . . . . . . . #
-  # . . . . . . . . #
-  # . . . . . . . . #
-  # P P P P P P P P #
-  # R N B Q K B N R #
-  # # # # # # # # # #
-  # # # # # # # # # #
-  This makes it easy to avoid moves over the edge of the board. There are two
-  ways of numbering the squares: The "long" index numbers all squares from 0 to
-  119, the "short" index numbers only the real squares from 0 to 63. Almost
-  always, the long index is used. The array long_index maps short indices to
-  long indices.
-- int castling[4]: The castling rights, white kingside, white queenside, black
-  kingside and black queenside.
-- int en_passant: The target square of an en passant move or -1 if the preceding
-  move was not a double step.
-- int player: The current player, WHITE or BLACK.
-- int white_king: The white king's position.
-*/
-struct Position
-{
-    int black_king;
-    int board[120];
-    int castling[4];
-    int en_passant;
-    int player;
-    int white_king;
-};

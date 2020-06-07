@@ -11,29 +11,20 @@ int compare_moves(Move* move1, Move* move2)
 
 Move iterative_deepening(Position* position, int min_time, int verbose)
 {
-    Move principal_variation[256];
-    memset(principal_variation, 0, 256 * sizeof (Move));
+    Move best_move;
+    memset(&best_move, 0, sizeof (Move));
     for (int depth = 1; depth < 256; depth++)
     {
         int nodes = 0;
         clock_t time1 = clock();
         int score = minimax(position, depth, -200000, 200000, &nodes,
-            principal_variation);
+            &best_move);
         clock_t time2 = clock();
         int time = 100 * (time2 - time1) / CLOCKS_PER_SEC;
         if (verbose)
         {
             printf("%3d %7d %7d %11d ", depth, score, time, nodes);
-            for (int i = 0; i < depth; i++)
-            {
-                Move* move = principal_variation + i;
-                if (move->origin == 0)
-                {
-                    break;
-                }
-                print_move(move);
-                printf(" ");
-            }
+            print_move(&best_move);
             printf("\n");
         }
         if (score >= 100000 || score <= -100000 || time > min_time)
@@ -41,23 +32,28 @@ Move iterative_deepening(Position* position, int min_time, int verbose)
             break;
         }
     }
-    return principal_variation[0];
+    return best_move;
 }
 
 int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
-    Move* principal_variation)
+    Move* best_move)
 {
     (*nodes)++;
+    Transposition* transposition = get_transposition(position, depth);
+    if (transposition != NULL)
+    {
+        *best_move = transposition->best_move;
+        return transposition->score;
+    }
     if (depth == 0)
     {
-        return evaluate(position);
+        int score = evaluate(position);
+        add_transposition(position, 0, score, NULL);
+        return score;
     }
     MoveList move_list;
     generate_moves(position, &move_list);
-    presort_moves(&move_list, principal_variation);
-    int score = alpha;
-    // reset the current best move
-    memset(principal_variation, 0, sizeof (Move));
+    int score = -200000;
     int legal_moves = 0;
     for (int i = 0; i < move_list.count; i++)
     {
@@ -66,19 +62,14 @@ int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
         if (legal(position))
         {
             legal_moves = 1;
-            Move child_principal_variation[depth - 1];
-            // Copy principal variation down to be used for presorting in the
-            // recursive call.
-            memcpy(child_principal_variation, principal_variation + 1,
-                (depth - 1) * sizeof (Move));
+            Move best_child_move;
+            memset(&best_child_move, 0, sizeof (Move));
             int child_score = -minimax(position, depth - 1, -beta, -alpha,
-                nodes, child_principal_variation);
+                nodes, &best_child_move);
             if (child_score > score)
             {
                 score = child_score;
-                principal_variation[0] = *move;
-                memcpy(principal_variation + 1, child_principal_variation,
-                    (depth - 1) * sizeof (Move));
+                *best_move = *move;
                 if (score > alpha)
                 {
                     alpha = score;
@@ -86,7 +77,8 @@ int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
                     {
                         // cutoff!
                         unmake_move(position, move);
-                        return beta;
+                        add_transposition(position, depth, score, best_move);
+                        return score;
                     }
                 }
             }
@@ -96,8 +88,9 @@ int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
     if (!legal_moves)
     {
         // checkmate or stalemate
-        return check(position, position->player) ? -100000 - depth : 0;
+        score = check(position, position->player) ? -100000 - depth : 0;
     }
+    add_transposition(position, depth, score, best_move);
     return score;
 }
 
