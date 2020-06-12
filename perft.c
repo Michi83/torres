@@ -1,24 +1,21 @@
 #include <stdint.h>
 #include <stdio.h>
-#include "torres.h"
+#include "generate.h"
+#include "position.h"
 
 uint64_t recurse(Position* position, int depth)
 {
-    if (depth == 0)
+    PositionList position_list;
+    generate_moves(position, &position_list);
+    if (depth == 1)
     {
-        return 1;
+        return position_list.count;
     }
     uint64_t count = 0;
-    MoveList move_list;
-    generate_moves(position, &move_list);
-    for (int i = 0; i < move_list.count; i++)
+    for (int i = 0; i < position_list.count; i++)
     {
-        make_move(position, move_list.moves + i);
-        if (legal(position))
-        {
-            count += recurse(position, depth - 1);
-        }
-        unmake_move(position, move_list.moves + i);
+        Position* child = position_list.positions + i;
+        count += recurse(child, depth - 1);
     }
     return count;
 }

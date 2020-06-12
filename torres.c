@@ -1,33 +1,24 @@
 #include <stdio.h>
 #include <string.h>
+#include "generate.h"
+#include "minimax.h"
+#include "position.h"
 #include "torres.h"
 
 int game_over(Position* position)
 {
-    MoveList move_list;
-    generate_moves(position, &move_list);
-    for (int i = 0; i < move_list.count; i++)
-    {
-        Move* move = move_list.moves + i;
-        make_move(position, move);
-        if (legal(position))
-        {
-            unmake_move(position, move);
-            return 0;
-        }
-        unmake_move(position, move);
-    }
-    return 1;
+    PositionList position_list;
+    generate_moves(position, &position_list);
+    return position_list.count == 0;
 }
 
 void xboard_go(Position* position, int verbose)
 {
     if (!game_over(position))
     {
-        Move move = iterative_deepening(position, 100, verbose);
-        make_move(position, &move);
+        *position = iterative_deepening(position, 100, verbose);
         printf("move ");
-        print_move(&move);
+        print_move(&position->move);
         printf("\n");
         print_position(position);
     }
@@ -56,15 +47,15 @@ void xboard_usermove(Position* position, char* usermove)
     case 'r':
         promotion = position->player * WHITE_ROOK;
     }
-    MoveList move_list;
-    generate_moves(position, &move_list);
-    for (int i = 0; i < move_list.count; i++)
+    PositionList position_list;
+    generate_moves(position, &position_list);
+    for (int i = 0; i < position_list.count; i++)
     {
-        Move move = move_list.moves[i];
-        if (move.origin == origin && move.target == target
-            && move.promotion == promotion)
+        Position* child = position_list.positions + i;
+        if (child->move.origin == origin && child->move.target == target
+            && child->move.promotion == promotion)
         {
-            make_move(position, &move);
+            *position = *child;
             break;
         }
     }

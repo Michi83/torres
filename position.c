@@ -1,18 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "torres.h"
-
-int long_index[64] =
-{
-    21, 22, 23, 24, 25, 26, 27, 28,
-    31, 32, 33, 34, 35, 36, 37, 38,
-    41, 42, 43, 44, 45, 46, 47, 48,
-    51, 52, 53, 54, 55, 56, 57, 58,
-    61, 62, 63, 64, 65, 66, 67, 68,
-    71, 72, 73, 74, 75, 76, 77, 78,
-    81, 82, 83, 84, 85, 86, 87, 88,
-    91, 92, 93, 94, 95, 96, 97, 98
-};
+#include "position.h"
 
 void initialize_position(Position* position, char fen[])
 {
@@ -21,6 +9,10 @@ void initialize_position(Position* position, char fen[])
     position->castling[1] = 0;
     position->castling[2] = 0;
     position->castling[3] = 0;
+    position->halfmove_clock = 0;
+    position->move.origin = 0;
+    position->move.target = 0;
+    position->move.promotion = NONE;
     int rank = 0;
     int file = 0;
     int i;
@@ -137,6 +129,44 @@ void initialize_position(Position* position, char fen[])
         file = fen[i] - 97;
         rank = 56 - fen[i + 1];
         position->en_passant = 8 * rank + file;
+    }
+}
+
+int long_index[64] =
+{
+    21, 22, 23, 24, 25, 26, 27, 28,
+    31, 32, 33, 34, 35, 36, 37, 38,
+    41, 42, 43, 44, 45, 46, 47, 48,
+    51, 52, 53, 54, 55, 56, 57, 58,
+    61, 62, 63, 64, 65, 66, 67, 68,
+    71, 72, 73, 74, 75, 76, 77, 78,
+    81, 82, 83, 84, 85, 86, 87, 88,
+    91, 92, 93, 94, 95, 96, 97, 98
+};
+
+void print_move(Move* move)
+{
+    printf("%c", 96 + move->origin % 10);
+    printf("%d", 10 - move->origin / 10);
+    printf("%c", 96 + move->target % 10);
+    printf("%d", 10 - move->target / 10);
+    switch (move->promotion)
+    {
+    case WHITE_QUEEN:
+    case BLACK_QUEEN:
+        printf("q");
+        break;
+    case WHITE_BISHOP:
+    case BLACK_BISHOP:
+        printf("b");
+        break;
+    case WHITE_KNIGHT:
+    case BLACK_KNIGHT:
+        printf("n");
+        break;
+    case WHITE_ROOK:
+    case BLACK_ROOK:
+        printf("r");
     }
 }
 
