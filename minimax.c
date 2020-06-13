@@ -71,7 +71,12 @@ int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
     for (int i = 0; i < position_list.count; i++)
     {
         Position* child = position_list.positions + i;
-        int child_score = -minimax(child, depth - 1, -beta, -alpha, nodes,
+        int child_depth = depth - 1;
+        if (child_depth > 1 && i >= 3)
+        {
+            child_depth--;
+        }
+        int child_score = -minimax(child, child_depth, -beta, -alpha, nodes,
             &dummy);
         if (child_score > score)
         {
@@ -85,7 +90,7 @@ int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
                     // cutoff
                     int origin = child->move.origin;
                     int target = child->move.target;
-                    history[origin][target] += depth * depth;
+                    history[origin][target] += 1 << depth;
                     return score;
                 }
             }
