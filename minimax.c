@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "evaluate.h"
@@ -6,10 +7,24 @@
 #include "minimax.h"
 #include "position.h"
 
+int compare_moves(const void* item1, const void* item2)
+{
+    Position* position1 = (Position*)item1;
+    Position* position2 = (Position*)item2;
+    int origin1 = position1->move.origin;
+    int target1 = position1->move.target;
+    int origin2 = position2->move.origin;
+    int target2 = position2->move.target;
+    return history[origin2][target2] - history[origin1][target1];
+}
+
+int history[120][120];
+
 Position iterative_deepening(Position* position, int min_time, int verbose)
 {
     Position best_child;
     memset(&best_child, 0, sizeof (Position));
+    memset(&history, 0, 120 * 120 * sizeof (int));
     for (int depth = 1; depth < 256; depth++)
     {
         int nodes = 0;
@@ -51,6 +66,8 @@ int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
     }
     int score = -200000;
     Position dummy;
+    qsort(position_list.positions, position_list.count, sizeof (Position),
+        compare_moves);
     for (int i = 0; i < position_list.count; i++)
     {
         Position* child = position_list.positions + i;
@@ -66,6 +83,9 @@ int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
                 if (alpha >= beta)
                 {
                     // cutoff
+                    int origin = child->move.origin;
+                    int target = child->move.target;
+                    history[origin][target] += depth * depth;
                     return score;
                 }
             }

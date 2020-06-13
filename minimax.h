@@ -3,6 +3,23 @@
 #include "position.h"
 
 /*
+Compares two moves according to the history heuristic.
+
+Parameters:
+- const void* item1: A position.
+- const void* item2: Another position.
+
+Returns: A negative number if item1 should go before item2, a positive number if
+item2 should go before item1.
+*/
+int compare_moves(const void* item1, const void* item2);
+
+/*
+The history table for the history heuristic.
+*/
+extern int history[120][120];
+
+/*
 Performs minimax searches of increasing depth.
 
 Parameters:
