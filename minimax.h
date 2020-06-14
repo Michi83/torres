@@ -24,12 +24,10 @@ Performs minimax searches of increasing depth.
 
 Parameters:
 - Position* position: The position to search.
-- int min_time: The minimum time to be spent in centiseconds.
-- int verbose: 1 if output is desired, 0 otherwise.
 
 Returns: A copy of the position in which the best move found was made.
 */
-Position iterative_deepening(Position* position, int min_time, int verbose);
+Position iterative_deepening(Position* position);
 
 /*
 Performs a recursive minimax tree search with alpha-beta pruning.

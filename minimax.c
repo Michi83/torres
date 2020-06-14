@@ -6,6 +6,7 @@
 #include "generate.h"
 #include "minimax.h"
 #include "position.h"
+#include "xboard.h"
 
 int compare_moves(const void* item1, const void* item2)
 {
@@ -20,8 +21,9 @@ int compare_moves(const void* item1, const void* item2)
 
 int history[120][120];
 
-Position iterative_deepening(Position* position, int min_time, int verbose)
+Position iterative_deepening(Position* position)
 {
+    int min_time = 200;
     Position best_child;
     memset(&best_child, 0, sizeof (Position));
     memset(&history, 0, 120 * 120 * sizeof (int));
@@ -33,12 +35,6 @@ Position iterative_deepening(Position* position, int min_time, int verbose)
             &best_child);
         clock_t time2 = clock();
         int time = 100 * (time2 - time1) / CLOCKS_PER_SEC;
-        if (verbose)
-        {
-            printf("%3d %7d %7d %11d ", depth, score, time, nodes);
-            print_move(&best_child.move);
-            printf("\n");
-        }
         if (score >= 100000 || score <= -100000 || time > min_time)
         {
             break;
@@ -97,4 +93,10 @@ int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
         }
     }
     return score;
+}
+
+int main(void)
+{
+    talk_to_xboard(&iterative_deepening);
+    return 0;
 }
