@@ -2,6 +2,14 @@
 
 #include "position.h"
 
+typedef struct IterativeDeepeningParameters IterativeDeepeningParameters;
+
+struct IterativeDeepeningParameters
+{
+    Position position;
+    Position child_position;
+};
+
 /*
 Compares two moves according to the history heuristic.
 
@@ -19,15 +27,7 @@ The history table for the history heuristic.
 */
 extern int history[120][120];
 
-/*
-Performs minimax searches of increasing depth.
-
-Parameters:
-- Position* position: The position to search.
-
-Returns: A copy of the position in which the best move found was made.
-*/
-Position iterative_deepening(Position* position);
+void* iterative_deepening(void* parameters);
 
 /*
 Performs a recursive minimax tree search with alpha-beta pruning.
@@ -47,3 +47,5 @@ an advantage, negative if they have a disadvantage.
 */
 int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
     Position* best_child);
+
+Position run_iterative_deepening_thread(Position* position);

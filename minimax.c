@@ -1,7 +1,8 @@
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <unistd.h>
 #include "evaluate.h"
 #include "generate.h"
 #include "minimax.h"
@@ -21,26 +22,20 @@ int compare_moves(const void* item1, const void* item2)
 
 int history[120][120];
 
-Position iterative_deepening(Position* position)
+void* iterative_deepening(void* parameters)
 {
-    int min_time = 200;
-    Position best_child;
-    memset(&best_child, 0, sizeof (Position));
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    IterativeDeepeningParameters* iterative_deepening_parameters =
+        (IterativeDeepeningParameters*)parameters;
+    Position* position = &iterative_deepening_parameters->position;
+    Position* child_position = &iterative_deepening_parameters->child_position;
     memset(&history, 0, 120 * 120 * sizeof (int));
-    for (int depth = 1; depth < 256; depth++)
+    for (int depth = 1; 1; depth++)
     {
         int nodes = 0;
-        clock_t time1 = clock();
-        int score = minimax(position, depth, -200000, 200000, &nodes,
-            &best_child);
-        clock_t time2 = clock();
-        int time = 100 * (time2 - time1) / CLOCKS_PER_SEC;
-        if (score >= 100000 || score <= -100000 || time > min_time)
-        {
-            break;
-        }
+        minimax(position, depth, -200000, 200000, &nodes, child_position);
     }
-    return best_child;
+    return NULL;
 }
 
 int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
@@ -95,8 +90,19 @@ int minimax(Position* position, int depth, int alpha, int beta, int* nodes,
     return score;
 }
 
+Position run_iterative_deepening_thread(Position* position)
+{
+    IterativeDeepeningParameters parameters;
+    parameters.position = *position;
+    pthread_t thread;
+    pthread_create(&thread, NULL, iterative_deepening, &parameters);
+    sleep(7);
+    pthread_cancel(thread);
+    return parameters.child_position;
+}
+
 int main(void)
 {
-    talk_to_xboard(&iterative_deepening);
+    talk_to_xboard(run_iterative_deepening_thread);
     return 0;
 }
